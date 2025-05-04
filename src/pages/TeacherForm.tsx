@@ -1,10 +1,9 @@
-
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/PageContainer";
 import { ProgressBar } from "@/components/ProgressBar";
-import { CheckCircle, User, Users, School } from "lucide-react";
+import { CheckCircle, User, Users, School, ArrowLeft } from "lucide-react";
 
 const TeacherForm = () => {
   const navigate = useNavigate();
@@ -240,7 +239,16 @@ const TeacherForm = () => {
           </div>
         </div>
 
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-between mt-8">
+          <Button 
+            type="button"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Button>
+          
           <Button 
             type="submit"
             className="bg-gradient-to-r from-teacher-purple to-teacher-blue text-white px-8 py-3 rounded-xl text-lg shadow-lg hover:opacity-90 transition-all"

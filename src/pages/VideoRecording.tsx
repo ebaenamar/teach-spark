@@ -1,12 +1,14 @@
 
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/PageContainer";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Play, Camera, Send } from "lucide-react";
+import { Play, Camera, Send, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 const VideoRecording = () => {
+  const navigate = useNavigate();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -130,7 +132,7 @@ const VideoRecording = () => {
           <video 
             ref={videoRef}
             className="w-full h-full object-cover"
-            muted={isRecording} // Mute while recording to prevent feedback
+            muted={isRecording}
             playsInline
           />
         </div>
@@ -196,6 +198,17 @@ const VideoRecording = () => {
           <li>Be natural - teach as you normally would in your classroom</li>
           <li>Keep your recording under one minute</li>
         </ul>
+      </div>
+
+      <div className="mt-6">
+        <Button 
+          type="button" 
+          onClick={() => navigate('/teacher-form')}
+          className="flex items-center gap-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Teacher Form
+        </Button>
       </div>
     </PageContainer>
   );
