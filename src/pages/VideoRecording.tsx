@@ -1,10 +1,9 @@
-
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/PageContainer";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Play, Camera, Send, ArrowLeft } from "lucide-react";
+import { Play, Camera, Send, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 const VideoRecording = () => {
@@ -12,11 +11,14 @@ const VideoRecording = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcription, setTranscription] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const videoChunksRef = useRef<Blob[]>([]);
+  const audioBlobRef = useRef<Blob | null>(null);
 
   const startRecording = async () => {
     try {
@@ -49,6 +51,9 @@ const VideoRecording = () => {
         
         stopTimer();
         setRecordingComplete(true);
+        
+        // Extract audio from the video for transcription
+        extractAudioFromVideo(videoBlob);
         
         // Clean up the stream
         if (streamRef.current) {
@@ -105,11 +110,155 @@ const VideoRecording = () => {
     }
   };
 
-  const handleSubmit = () => {
-    toast({
-      title: "Video Submitted",
-      description: "Thank you! Your video has been submitted successfully.",
-    });
+  // Extract audio from the video blob
+  const extractAudioFromVideo = async (videoBlob: Blob) => {
+    try {
+      setIsTranscribing(true);
+      
+      // Create an audio context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create a media element source
+      const videoElement = document.createElement('video');
+      videoElement.src = URL.createObjectURL(videoBlob);
+      
+      // Create a destination for the audio data
+      const destination = audioContext.createMediaStreamDestination();
+      
+      // Create a media element source from the video element
+      const source = audioContext.createMediaElementSource(videoElement);
+      
+      // Connect the source to the destination
+      source.connect(destination);
+      
+      // Create a new MediaRecorder to record just the audio
+      const audioRecorder = new MediaRecorder(destination.stream);
+      const audioChunks: Blob[] = [];
+      
+      audioRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.push(e.data);
+        }
+      };
+      
+      audioRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        audioBlobRef.current = audioBlob;
+        
+        // Now that we have the audio, transcribe it
+        transcribeAudio(audioBlob);
+      };
+      
+      // Start recording the audio
+      audioRecorder.start();
+      
+      // Play the video (this will be silent as we're just extracting the audio)
+      videoElement.play();
+      
+      // Stop the audio recording when the video ends
+      videoElement.onended = () => {
+        audioRecorder.stop();
+        videoElement.remove();
+      };
+      
+      // If the video is too long, stop after 60 seconds
+      setTimeout(() => {
+        if (audioRecorder.state === 'recording') {
+          audioRecorder.stop();
+          videoElement.remove();
+        }
+      }, 61000); // Slightly longer than the video to ensure we capture everything
+      
+    } catch (error) {
+      console.error('Error extracting audio:', error);
+      setIsTranscribing(false);
+      toast({
+        title: "Audio Extraction Error",
+        description: "There was a problem extracting audio from your recording.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Transcribe the audio using browser's SpeechRecognition API
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      // For now, we'll use a placeholder transcription
+      // In a real implementation, you would use a service like Google Speech-to-Text, AWS Transcribe, etc.
+      
+      // Simulate transcription with a timeout
+      setTimeout(() => {
+        // This is where you would integrate with a real transcription service
+        // For now, we'll just set a placeholder message
+        setTranscription("This is a placeholder transcription. In a real implementation, you would integrate with a transcription service.");
+        setIsTranscribing(false);
+      }, 2000);
+      
+      // Note: Browser's SpeechRecognition API doesn't work with pre-recorded audio
+      // You'll need to use a server-side solution or a third-party API for production use
+      
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      setIsTranscribing(false);
+      toast({
+        title: "Transcription Error",
+        description: "There was a problem transcribing your recording.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (!transcription) {
+        toast({
+          title: "Transcription Not Ready",
+          description: "Please wait for the transcription to complete before submitting.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Prepare the data to send to the API
+      const formData = JSON.stringify({
+        transcription: transcription,
+        recordingDate: new Date().toISOString(),
+        // You can add more metadata here as needed
+      });
+      
+      // This is where you would send the data to your API
+      // For now, we'll just log it and show a success message
+      console.log("Data to send to API:", formData);
+      
+      toast({
+        title: "Transcription Ready",
+        description: "Your video has been transcribed and is ready to send to the API.",
+      });
+      
+      // In a real implementation, you would send the data to your API here
+      // const response = await fetch('YOUR_API_ENDPOINT', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: formData,
+      // });
+      // 
+      // if (!response.ok) {
+      //   throw new Error('Failed to submit transcription');
+      // }
+      // 
+      // const data = await response.json();
+      // console.log('API response:', data);
+      
+    } catch (error) {
+      console.error('Error submitting transcription:', error);
+      toast({
+        title: "Submission Error",
+        description: "There was a problem submitting your transcription.",
+        variant: "destructive"
+      });
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -155,6 +304,20 @@ const VideoRecording = () => {
             )}
           </div>
           
+          {isTranscribing && (
+            <div className="flex items-center justify-center my-3 text-teacher-purple">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span>Transcribing your recording...</span>
+            </div>
+          )}
+          
+          {transcription && (
+            <div className="my-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="font-medium text-teacher-purple mb-1">Transcription:</h3>
+              <p className="text-sm text-gray-700">{transcription}</p>
+            </div>
+          )}
+          
           <div className="flex justify-center space-x-4">
             {!isRecording && !recordingComplete && (
               <Button
@@ -179,10 +342,20 @@ const VideoRecording = () => {
             {recordingComplete && (
               <Button
                 onClick={handleSubmit}
+                disabled={isTranscribing || !transcription}
                 className="bg-gradient-to-r from-teacher-teal to-teacher-blue text-white px-6 py-2 rounded-xl"
               >
-                Submit Video
-                <Send className="ml-2 h-4 w-4" />
+                {isTranscribing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Submit Transcription
+                    <Send className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             )}
           </div>
